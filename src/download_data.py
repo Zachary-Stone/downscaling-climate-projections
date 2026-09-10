@@ -91,7 +91,7 @@ def resolve_data_root() -> Path:
             return candidate
 
     # Common layout after a previous Zenodo extract in the working directory
-    zenodo_root = Path("NZ_domain")
+    zenodo_root = settings.PROJECT_ROOT / "data" / "NZ_domain"
     if _has_required_files(zenodo_root):
         print(f"Using previously downloaded data at {zenodo_root.resolve()}")
         return zenodo_root
