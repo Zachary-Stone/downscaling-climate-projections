@@ -1,0 +1,46 @@
+# Python bytecode and tooling caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.pyre/
+.tox/
+.nox/
+.coverage
+.coverage.*
+htmlcov/
+
+# Virtual environments and build artifacts
+.venv/
+venv/
+ENV/
+env/
+build/
+dist/
+*.egg-info/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Local configuration and editor files
+.env
+.env.*
+!.env.example
+.vscode/
+.idea/
+
+# Downloaded climate data and generated outputs
+data/*
+!data/.gitkeep
+data-tutorial/
+NZ_domain/
+*.nc
+*.zip
+models/
+code_carbon/
+
+# OS files
+.DS_Store
+Thumbs.db
