@@ -1,6 +1,6 @@
 ### Intro
 
-This is a fork of https://github.com/climatechange-ai-tutorials/downscaling-climate-projections. The original repo housed the entire code in a single notebook. This repo refactors that code into a proper codebase. It contains type hints, doc strings, and distinct modules among other things.
+This is a fork of https://github.com/climatechange-ai-tutorials/downscaling-climate-projections. The original repo housed the entire code in a single notebook. This repo refactors that code into a codebase with type hints, doc strings, and logical modules.
 
 ### Getting Started
 
