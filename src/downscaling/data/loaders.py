@@ -1,3 +1,5 @@
+"""Load, prepare, and visualize NZ CORDEX training data."""
+
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -24,6 +26,24 @@ def _data_root() -> Path:
 
 
 def _test_subdir(period: str) -> str:
+    """
+    Return the test-data directory name for a climate period.
+
+    Parameters
+    ----------
+    period : str
+        Climate period encoded in the source file name.
+
+    Returns
+    -------
+    str
+        Test-data subdirectory corresponding to ``period``.
+
+    Raises
+    ------
+    ValueError
+        If ``period`` is not a configured historical or future test period.
+    """
     if period == settings.HIST_PERIOD:
         return "historical"
 
@@ -36,6 +56,23 @@ def _test_subdir(period: str) -> str:
 def _predictors_path(
     period: str, kind: str = "perfect", gcm: str | None = None
 ) -> Path:
+    """
+    Build the path to a predictor NetCDF file.
+
+    Parameters
+    ----------
+    period : str
+        Climate period encoded in the source file name.
+    kind : str, optional
+        Predictor data type for test periods. Default is ``"perfect"``.
+    gcm : str, optional
+        Driving GCM name. When omitted, uses the training GCM.
+
+    Returns
+    -------
+    pathlib.Path
+        Absolute path to the requested predictor file.
+    """
     gcm = gcm or settings.GCM_TRAIN
 
     if period == settings.TRAIN_PERIOD:
@@ -54,6 +91,21 @@ def _predictors_path(
 
 
 def _target_path(period: str, gcm: str | None = None) -> Path:
+    """
+    Build the path to a precipitation target NetCDF file.
+
+    Parameters
+    ----------
+    period : str
+        Climate period encoded in the source file name.
+    gcm : str, optional
+        Driving GCM name. When omitted, uses the training GCM.
+
+    Returns
+    -------
+    pathlib.Path
+        Absolute path to the requested precipitation target file.
+    """
     gcm = gcm or settings.GCM_TRAIN
 
     if period == settings.TRAIN_PERIOD:
@@ -152,7 +204,7 @@ def _standardization_stats(predictors_ds: xr.Dataset) -> tuple[xr.Dataset, xr.Da
     return predictors_ds.mean("time"), predictors_ds.std("time")
 
 
-def _predictors_to_array(
+def predictors_to_array(
     predictors_ds: xr.Dataset, mean: xr.Dataset, std: xr.Dataset
 ) -> np.ndarray:
     """
@@ -222,34 +274,84 @@ class CordexDataInterface:
 
     @classmethod
     def predictors_train(cls) -> xr.Dataset:
+        """
+        Return cached training-period predictor fields.
+
+        Returns
+        -------
+        xarray.Dataset
+            Predictor fields for the configured training period.
+        """
         if cls._predictors_train is None:
             cls._predictors_train = load_predictors(settings.TRAIN_PERIOD)
         return cls._predictors_train
 
     @classmethod
     def precip_train(cls) -> xr.DataArray:
+        """
+        Return cached training-period precipitation fields.
+
+        Returns
+        -------
+        xarray.DataArray
+            Precipitation fields for the configured training period.
+        """
         if cls._precip_train is None:
             cls._precip_train = load_precip(settings.TRAIN_PERIOD)
         return cls._precip_train
 
     @classmethod
     def train_slice(cls) -> slice:
+        """
+        Return the time slice assigned to model training.
+
+        Returns
+        -------
+        slice
+            Inclusive string-based slice from the training-period start through
+            the year before the validation split.
+        """
         year_start, _ = settings.TRAIN_PERIOD.split("-")
         return slice(year_start, str(settings.VAL_SPLIT_YEAR - 1))
 
     @classmethod
     def validation_slice(cls) -> slice:
+        """
+        Return the time slice assigned to model validation.
+
+        Returns
+        -------
+        slice
+            Inclusive string-based slice from the validation split through the
+            training-period end.
+        """
         _, year_end = settings.TRAIN_PERIOD.split("-")
         return slice(str(settings.VAL_SPLIT_YEAR), year_end)
 
     @classmethod
     def train_predictors(cls) -> xr.Dataset:
+        """
+        Return cached predictor fields used for model training.
+
+        Returns
+        -------
+        xarray.Dataset
+            Training-period predictor fields before standardization.
+        """
         if cls._pred_train is None:
             cls._pred_train = cls.predictors_train().sel(time=cls.train_slice())
         return cls._pred_train
 
     @classmethod
     def validation_predictors(cls) -> xr.Dataset:
+        """
+        Return cached predictor fields used for model validation.
+
+        Returns
+        -------
+        xarray.Dataset
+            Validation-period predictor fields before standardization.
+        """
         if cls._pred_validation is None:
             cls._pred_validation = cls.predictors_train().sel(
                 time=cls.validation_slice()
@@ -258,18 +360,42 @@ class CordexDataInterface:
 
     @classmethod
     def train_precip(cls) -> xr.DataArray:
+        """
+        Return cached precipitation fields used for model training.
+
+        Returns
+        -------
+        xarray.DataArray
+            Training-period precipitation fields.
+        """
         if cls._precip_train_split is None:
             cls._precip_train_split = cls.precip_train().sel(time=cls.train_slice())
         return cls._precip_train_split
 
     @classmethod
     def validation_precip(cls) -> xr.DataArray:
+        """
+        Return cached precipitation fields used for model validation.
+
+        Returns
+        -------
+        xarray.DataArray
+            Validation-period precipitation fields.
+        """
         if cls._precip_validation is None:
             cls._precip_validation = cls.precip_train().sel(time=cls.validation_slice())
         return cls._precip_validation
 
     @classmethod
     def pred_mean(cls) -> xr.Dataset:
+        """
+        Return cached predictor means fitted on training data.
+
+        Returns
+        -------
+        xarray.Dataset
+            Per-predictor means over the training ``time`` dimension.
+        """
         if cls._pred_mean is None:
             cls._pred_mean, cls._pred_std = _standardization_stats(
                 cls.train_predictors()
@@ -278,6 +404,15 @@ class CordexDataInterface:
 
     @classmethod
     def pred_std(cls) -> xr.Dataset:
+        """
+        Return cached predictor standard deviations fitted on training data.
+
+        Returns
+        -------
+        xarray.Dataset
+            Per-predictor standard deviations over the training ``time``
+            dimension.
+        """
         if cls._pred_std is None:
             cls._pred_mean, cls._pred_std = _standardization_stats(
                 cls.train_predictors()
@@ -286,21 +421,46 @@ class CordexDataInterface:
 
     @classmethod
     def target_lat(cls) -> xr.DataArray:
+        """
+        Return cached target-grid latitude coordinates.
+
+        Returns
+        -------
+        xarray.DataArray
+            One-dimensional latitude coordinate of the precipitation grid.
+        """
         if cls._target_lat is None:
             cls._target_lat = cls.precip_train()["lat"]
         return cls._target_lat
 
     @classmethod
     def target_lon(cls) -> xr.DataArray:
+        """
+        Return cached target-grid longitude coordinates.
+
+        Returns
+        -------
+        xarray.DataArray
+            One-dimensional longitude coordinate of the precipitation grid.
+        """
         if cls._target_lon is None:
             cls._target_lon = cls.precip_train()["lon"]
         return cls._target_lon
 
     @classmethod
     def train_entries(cls) -> tuple[np.ndarray, np.ndarray]:
+        """
+        Return cached standardized training predictors and target vectors.
+
+        Returns
+        -------
+        tuple[numpy.ndarray, numpy.ndarray]
+            Predictor array with shape ``(time, variable, lat, lon)`` and
+            precipitation array with shape ``(time, lat * lon)``.
+        """
         if cls._train_entries is None:
             cls._train_entries = (
-                _predictors_to_array(
+                predictors_to_array(
                     cls.train_predictors(), cls.pred_mean(), cls.pred_std()
                 ),
                 _precip_to_array(cls.train_precip()),
@@ -309,9 +469,18 @@ class CordexDataInterface:
 
     @classmethod
     def validation_entries(cls) -> tuple[np.ndarray, np.ndarray]:
+        """
+        Return cached standardized validation predictors and target vectors.
+
+        Returns
+        -------
+        tuple[numpy.ndarray, numpy.ndarray]
+            Predictor array with shape ``(time, variable, lat, lon)`` and
+            precipitation array with shape ``(time, lat * lon)``.
+        """
         if cls._validation_entries is None:
             cls._validation_entries = (
-                _predictors_to_array(
+                predictors_to_array(
                     cls.validation_predictors(), cls.pred_mean(), cls.pred_std()
                 ),
                 _precip_to_array(cls.validation_precip()),
@@ -320,12 +489,20 @@ class CordexDataInterface:
 
     @classmethod
     def n_gridpoints(cls) -> int:
+        """
+        Return the number of cells in the precipitation target grid.
+
+        Returns
+        -------
+        int
+            Product of the target grid's latitude and longitude sizes.
+        """
         if cls._n_gridpoints is None:
             cls._n_gridpoints = cls.target_lat().size * cls.target_lon().size
         return cls._n_gridpoints
 
 
-def _get_train_loader() -> DataLoader:
+def get_train_loader() -> DataLoader:
     """
     Create a data loader for the cached training entries.
 
@@ -340,7 +517,7 @@ def _get_train_loader() -> DataLoader:
     )
 
 
-def _get_val_loader() -> DataLoader:
+def get_val_loader() -> DataLoader:
     """
     Create a data loader for the cached validation entries.
 

@@ -1,3 +1,5 @@
+"""Plot geographic predictor and precipitation fields."""
+
 import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
 import numpy as np
@@ -13,6 +15,22 @@ from structs.point import Point
 def make_map_axes(
     ncols: int = 1, figsize: tuple[float, float] | None = None
 ) -> tuple[Figure, np.ndarray]:
+    """
+    Create a row of Cartopy map axes.
+
+    Parameters
+    ----------
+    ncols : int, optional
+        Number of map axes to create. Default is 1.
+    figsize : tuple[float, float], optional
+        Figure width and height in inches. When omitted, a size based on
+        ``ncols`` is used.
+
+    Returns
+    -------
+    tuple[matplotlib.figure.Figure, numpy.ndarray]
+        Figure and one-dimensional array of Cartopy axes.
+    """
     kw = {"subplot_kw": {"projection": ccrs.PlateCarree()}}
     fig, axes = plt.subplots(1, ncols, figsize=figsize or (5.2 * ncols, 4.8), **kw)
     axes = np.atleast_1d(axes)

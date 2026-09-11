@@ -11,6 +11,7 @@ ZENODO_ZIP_NAME: str = "NZ-subset.zip"
 ZENODO_URL = (
     f"https://zenodo.org/records/{ZENODO_RECORD}/files/{ZENODO_ZIP_NAME}?download=1"
 )
+GCM_TRANSFER: str = "EC-Earth3"
 REQUIRED_RELATIVE_PATHS = [
     Path("train/ESD_pseudo_reality/predictors")
     / f"{settings.GCM_TRAIN}_{settings.TRAIN_PERIOD}.nc",
@@ -21,19 +22,19 @@ REQUIRED_RELATIVE_PATHS = [
     Path("test/historical/predictors/imperfect")
     / f"{settings.GCM_TRAIN}_{settings.HIST_PERIOD}.nc",
     Path("test/historical/predictors/imperfect")
-    / f"{settings.GCM_TRANSFER}_{settings.HIST_PERIOD}.nc",
+    / f"{GCM_TRANSFER}_{settings.HIST_PERIOD}.nc",
     Path("test/historical/target")
     / f"pr_tasmax_{settings.GCM_TRAIN}_{settings.HIST_PERIOD}.nc",
     Path("test/historical/target")
-    / f"pr_tasmax_{settings.GCM_TRANSFER}_{settings.HIST_PERIOD}.nc",
+    / f"pr_tasmax_{GCM_TRANSFER}_{settings.HIST_PERIOD}.nc",
     Path("test/end_century/predictors/imperfect")
     / f"{settings.GCM_TRAIN}_{settings.FUTURE_PERIOD}.nc",
     Path("test/end_century/predictors/imperfect")
-    / f"{settings.GCM_TRANSFER}_{settings.FUTURE_PERIOD}.nc",
+    / f"{GCM_TRANSFER}_{settings.FUTURE_PERIOD}.nc",
     Path("test/end_century/target")
     / f"pr_tasmax_{settings.GCM_TRAIN}_{settings.FUTURE_PERIOD}.nc",
     Path("test/end_century/target")
-    / f"pr_tasmax_{settings.GCM_TRANSFER}_{settings.FUTURE_PERIOD}.nc",
+    / f"pr_tasmax_{GCM_TRANSFER}_{settings.FUTURE_PERIOD}.nc",
 ]
 
 

@@ -1,135 +1,206 @@
-def idx_mean(da):
+"""Calculate spatial precipitation diagnostics for model evaluation."""
+
+from collections.abc import Callable
+
+import numpy as np
+import xarray as xr
+
+from config import settings
+
+IndexFunction = Callable[[xr.DataArray], xr.DataArray]
+
+
+def idx_mean(da: xr.DataArray) -> xr.DataArray:
+    """
+    Calculate the temporal mean precipitation field.
+
+    Parameters
+    ----------
+    da : xarray.DataArray
+        Precipitation data with a ``time`` dimension.
+
+    Returns
+    -------
+    xarray.DataArray
+        Mean precipitation at each grid cell.
+    """
     return da.mean("time")
 
 
-def idx_quantile(da, q):
+def idx_quantile(da: xr.DataArray, q: float) -> xr.DataArray:
+    """
+    Calculate a temporal precipitation quantile at each grid cell.
+
+    Parameters
+    ----------
+    da : xarray.DataArray
+        Precipitation data with a ``time`` dimension.
+    q : float
+        Quantile to calculate, in the closed interval from 0 to 1.
+
+    Returns
+    -------
+    xarray.DataArray
+        Spatial quantile field without the scalar ``quantile`` coordinate.
+    """
     out = da.quantile(q, dim="time")
     return out.drop_vars("quantile", errors="ignore")
 
 
-def idx_p98(da):
+def idx_p98(da: xr.DataArray) -> xr.DataArray:
+    """
+    Calculate the 98th-percentile precipitation field.
+
+    Parameters
+    ----------
+    da : xarray.DataArray
+        Precipitation data with a ``time`` dimension.
+
+    Returns
+    -------
+    xarray.DataArray
+        98th-percentile precipitation at each grid cell.
+    """
     return idx_quantile(da, 0.98)
 
 
-def idx_sdii(da, wet_threshold=WET_DAY_THRESHOLD):
-    """Mean precipitation on wet days (>= threshold)."""
+def idx_sdii(
+    da: xr.DataArray, wet_threshold: float = settings.WET_DAY_THRESHOLD
+) -> xr.DataArray:
+    """
+    Calculate mean precipitation on wet days at each grid cell.
+
+    Parameters
+    ----------
+    da : xarray.DataArray
+        Precipitation data with a ``time`` dimension.
+    wet_threshold : float, optional
+        Minimum precipitation that defines a wet day, in mm/day. Default is
+        the configured wet-day threshold.
+
+    Returns
+    -------
+    xarray.DataArray
+        Mean precipitation for days at or above ``wet_threshold``.
+    """
     return da.where(da >= wet_threshold).mean("time")
 
 
-def idx_rx1day(da):
-    """Mean across years of the annual maximum 1-day precipitation."""
+def idx_rx1day(da: xr.DataArray) -> xr.DataArray:
+    """
+    Calculate the mean annual maximum one-day precipitation.
+
+    Parameters
+    ----------
+    da : xarray.DataArray
+        Precipitation data with a ``time`` dimension.
+
+    Returns
+    -------
+    xarray.DataArray
+        Mean across years of the annual maximum daily precipitation.
+    """
     return da.groupby("time.year").max("time").mean("year")
 
 
-def rmse_map(obs, pred):
+def rmse_map(obs: xr.DataArray, pred: xr.DataArray) -> xr.DataArray:
+    """
+    Calculate temporal root-mean-square error at each grid cell.
+
+    Parameters
+    ----------
+    obs : xarray.DataArray
+        Reference precipitation data with a ``time`` dimension.
+    pred : xarray.DataArray
+        Predicted precipitation data aligned with ``obs``.
+
+    Returns
+    -------
+    xarray.DataArray
+        Root-mean-square error at each grid cell.
+    """
     return np.sqrt(((pred - obs) ** 2).mean("time"))
 
 
-def index_bias(obs, pred, index_fn):
-    """Spatial map of (model - truth) for a given index."""
+def index_bias(
+    obs: xr.DataArray, pred: xr.DataArray, index_fn: IndexFunction
+) -> xr.DataArray:
+    """
+    Calculate model-minus-reference bias for a spatial index.
+
+    Parameters
+    ----------
+    obs : xarray.DataArray
+        Reference precipitation data.
+    pred : xarray.DataArray
+        Predicted precipitation data aligned with ``obs``.
+    index_fn : collections.abc.Callable
+        Function that reduces a precipitation field to a spatial index.
+
+    Returns
+    -------
+    xarray.DataArray
+        Spatial index bias calculated as prediction minus reference.
+    """
     return index_fn(pred) - index_fn(obs)
 
 
-# Indices we report, in display order.
-INDEX_FUNCS = {"mean": idx_mean, "SDII": idx_sdii, "P98": idx_p98, "RX1day": idx_rx1day}
+def align_time(pred: xr.DataArray, obs: xr.DataArray) -> xr.DataArray:
+    """
+    Assign a reference time coordinate to predictions of equal length.
+
+    Parameters
+    ----------
+    pred : xarray.DataArray
+        Predicted precipitation with a ``time`` dimension.
+    obs : xarray.DataArray
+        Reference precipitation with a ``time`` dimension.
+
+    Returns
+    -------
+    xarray.DataArray
+        ``pred`` with the time coordinates from ``obs``.
+
+    Raises
+    ------
+    AssertionError
+        If ``pred`` and ``obs`` contain different numbers of time steps.
+    """
+    assert pred.sizes["time"] == obs.sizes["time"], (
+        "prediction/reference length mismatch"
+    )
+    return pred.assign_coords(time=obs["time"].values)
 
 
-def summarize(obs, pred):
-    """Return a one-row summary of spatially-averaged diagnostics (mm/day).
+def summarize(obs: xr.DataArray, pred: xr.DataArray) -> dict[str, float]:
+    """
+    Summarize spatially averaged precipitation diagnostics.
 
     Index biases are averaged in absolute value over the domain, so that
     overestimation in one area and underestimation in another do not cancel.
+
+    Parameters
+    ----------
+    obs : xarray.DataArray
+        Reference precipitation data with a ``time`` dimension.
+    pred : xarray.DataArray
+        Predicted precipitation data aligned with ``obs``.
+
+    Returns
+    -------
+    dict[str, float]
+        Root-mean-square error and mean absolute bias for each configured
+        index, in mm/day.
     """
+    # summary statistic order
+    sum_stat_order = {
+        "mean": idx_mean,
+        "SDII": idx_sdii,
+        "P98": idx_p98,
+        "RX1day": idx_rx1day,
+    }
+
     row = {"RMSE": float(rmse_map(obs, pred).mean())}
-    for name, fn in INDEX_FUNCS.items():
+    for name, fn in sum_stat_order.items():
         row[f"bias_{name}"] = float(np.abs(index_bias(obs, pred, fn)).mean())
     return row
-
-
-pred_pred = load_predictors(HIST_PERIOD, kind="perfect", gcm=GCM_TRAIN)
-obs_hist = load_precip(HIST_PERIOD, gcm=GCM_TRAIN).load()
-
-pr_pred_hist = align_time(downscale(model, pred_pred), obs_hist)
-
-summary = summarize(obs_hist, pr_pred_hist)
-summary_df = pd.DataFrame([summary], index=["DeepESD (perfect predictors)"]).round(3)
-
-print("Spatially-averaged diagnostics on the 1981-2000 test period (mm/day):")
-summary_df
-
-COMPARE_INDICES = {
-    "Mean (climatology)": idx_mean,
-    "SDII": idx_sdii,
-    "P98": idx_p98,
-    "RX1day": idx_rx1day,
-}
-
-ncols = len(COMPARE_INDICES)
-subplot_kw = {"projection": ccrs.PlateCarree()} if HAS_CARTOPY else {}
-fig, axes = plt.subplots(2, ncols, figsize=(4.2 * ncols, 8.4), subplot_kw=subplot_kw)
-
-for col, (name, fn) in enumerate(COMPARE_INDICES.items()):
-    truth_field = fn(obs_hist)
-    pred_field = fn(pr_pred_hist)
-    vmax = float(max(truth_field.max(), pred_field.max()))  # shared scale per column
-    plot_field(
-        axes[0, col],
-        truth_field,
-        title=f"{name} - truth",
-        cmap="YlGnBu",
-        vmin=0,
-        vmax=vmax,
-        points=POINTS,
-        cbar_label="mm/day",
-        title_fontsize=10,
-    )
-    plot_field(
-        axes[1, col],
-        pred_field,
-        title=f"{name} - DeepESD",
-        cmap="YlGnBu",
-        vmin=0,
-        vmax=vmax,
-        points=POINTS,
-        cbar_label="mm/day",
-        title_fontsize=10,
-    )
-fig.suptitle(
-    f"Climatology and extremes, {HIST_PERIOD}: pseudo-reality (top) vs DeepESD (bottom)",
-    y=1.01,
-)
-fig.tight_layout()
-plt.show()
-
-# Where are the errors? Maps of RMSE and index biases
-rmse_field = rmse_map(obs_hist, pr_pred_hist)
-bias_mean_field = index_bias(obs_hist, pr_pred_hist, idx_mean)
-bias_p98_field = index_bias(obs_hist, pr_pred_hist, idx_p98)
-bias_rx1_field = index_bias(obs_hist, pr_pred_hist, idx_rx1day)
-
-fig, axes = make_map_axes(ncols=4, figsize=(18, 4.4))
-plot_field(
-    axes[0],
-    rmse_field,
-    title="RMSE",
-    cmap="magma_r",
-    points=POINTS,
-    cbar_label="mm/day",
-)
-for ax, field, name in zip(
-    axes[1:],
-    [bias_mean_field, bias_p98_field, bias_rx1_field],
-    ["mean", "P98", "RX1day"],
-):
-    v = float(np.nanmax(np.abs(field))) * 0.8
-    plot_field(
-        ax,
-        field,
-        title=f"Bias of {name} (model - truth)",
-        cmap="RdBu",
-        vmin=-v,
-        vmax=v,
-        points=POINTS,
-        cbar_label="mm/day",
-    )
-plt.show()
