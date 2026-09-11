@@ -39,13 +39,52 @@ REQUIRED_RELATIVE_PATHS = [
 
 
 def _has_required_files(data_root: Path) -> bool:
+    """
+    Check whether a data directory contains every tutorial input file.
+
+    Parameters
+    ----------
+    data_root : pathlib.Path
+        Directory expected to contain the NZ tutorial data layout.
+
+    Returns
+    -------
+    bool
+        True when every path in ``REQUIRED_RELATIVE_PATHS`` exists beneath
+        ``data_root``; otherwise, False.
+    """
     return all((data_root / rel).exists() for rel in REQUIRED_RELATIVE_PATHS)
 
 
 def download_nz_domain(
     extract_to: Path = Path("."), zip_path: str | Path | None = None
 ) -> Path:
-    """Download the tutorial NZ subset zip from Zenodo, extract it, and return NZ_domain."""
+    """
+    Download and extract the tutorial NZ data subset from Zenodo.
+
+    Parameters
+    ----------
+    extract_to : pathlib.Path, optional
+        Directory into which the archive is extracted. Default is the current
+        working directory.
+    zip_path : str or pathlib.Path, optional
+        Temporary archive path. When omitted, uses ``NZ-subset.zip`` within
+        ``extract_to``.
+
+    Returns
+    -------
+    pathlib.Path
+        Extracted ``NZ_domain`` directory.
+
+    Raises
+    ------
+    requests.RequestException
+        If the archive cannot be downloaded successfully.
+    zipfile.BadZipFile
+        If the downloaded archive is not a valid ZIP file.
+    FileNotFoundError
+        If extraction does not produce the expected ``NZ_domain`` directory.
+    """
     extract_to = Path(extract_to)
     extract_to.mkdir(parents=True, exist_ok=True)
     zip_path = Path(zip_path) if zip_path is not None else extract_to / ZENODO_ZIP_NAME
@@ -86,6 +125,23 @@ def download_nz_domain(
 
 
 def resolve_data_root() -> Path:
+    """
+    Locate an existing NZ dataset or download it into the project data directory.
+
+    Returns
+    -------
+    pathlib.Path
+        Directory containing the complete NZ tutorial data layout.
+
+    Raises
+    ------
+    FileNotFoundError
+        If the downloaded data does not contain every required input file.
+    requests.RequestException
+        If data must be downloaded and the request fails.
+    zipfile.BadZipFile
+        If data must be downloaded and the received archive is invalid.
+    """
     for candidate in settings.LOCAL_DATA_CANDIDATES:
         if not candidate.is_absolute():
             candidate = settings.PROJECT_ROOT / candidate
