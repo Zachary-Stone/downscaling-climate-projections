@@ -30,6 +30,7 @@ dist/
 !.env.example
 .vscode/
 .idea/
+AGENTS.md
 
 # Downloaded climate data and generated outputs
 data/*

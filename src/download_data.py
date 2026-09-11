@@ -3,8 +3,14 @@ from pathlib import Path
 
 import requests
 
-from settings import settings
+from config import settings
 
+# Zenodo: tutorial subset (~3.3 GB). Full CORDEX-ML-Bench: https://doi.org/10.5281/zenodo.20985924
+ZENODO_RECORD: str = "21425433"
+ZENODO_ZIP_NAME: str = "NZ-subset.zip"
+ZENODO_URL = (
+    f"https://zenodo.org/records/{ZENODO_RECORD}/files/{ZENODO_ZIP_NAME}?download=1"
+)
 REQUIRED_RELATIVE_PATHS = [
     Path("train/ESD_pseudo_reality/predictors")
     / f"{settings.GCM_TRAIN}_{settings.TRAIN_PERIOD}.nc",
@@ -41,17 +47,11 @@ def download_nz_domain(
     """Download the tutorial NZ subset zip from Zenodo, extract it, and return NZ_domain."""
     extract_to = Path(extract_to)
     extract_to.mkdir(parents=True, exist_ok=True)
-    zip_path = (
-        Path(zip_path)
-        if zip_path is not None
-        else extract_to / settings.ZENODO_ZIP_NAME
-    )
+    zip_path = Path(zip_path) if zip_path is not None else extract_to / ZENODO_ZIP_NAME
 
-    print(
-        f"Downloading {settings.ZENODO_ZIP_NAME} from Zenodo record {settings.ZENODO_RECORD} ..."
-    )
-    print(f"URL: {settings.ZENODO_URL}")
-    with requests.get(settings.ZENODO_URL, stream=True, timeout=60) as response:
+    print(f"Downloading {ZENODO_ZIP_NAME} from Zenodo record {ZENODO_RECORD} ...")
+    print(f"URL: {ZENODO_URL}")
+    with requests.get(ZENODO_URL, stream=True, timeout=60) as response:
         response.raise_for_status()
         total = int(response.headers.get("Content-Length", 0))
         downloaded = 0
@@ -86,6 +86,8 @@ def download_nz_domain(
 
 def resolve_data_root() -> Path:
     for candidate in settings.LOCAL_DATA_CANDIDATES:
+        if not candidate.is_absolute():
+            candidate = settings.PROJECT_ROOT / candidate
         if _has_required_files(candidate):
             print(f"Using local data at {candidate.resolve()}")
             return candidate
