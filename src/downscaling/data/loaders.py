@@ -5,12 +5,12 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
+from structs.emulation_dataset import EmulationDataset
+from structs.point import Point
 from torch.utils.data import DataLoader
 
 from config import settings
 from downscaling.data.plotting import make_map_axes, plot_field
-from structs.emulation_dataset import EmulationDataset
-from structs.point import Point
 
 
 def _data_root() -> Path:

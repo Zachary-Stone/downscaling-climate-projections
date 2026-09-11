@@ -8,7 +8,6 @@ from matplotlib.axes import Axes
 from matplotlib.collections import QuadMesh
 from matplotlib.colors import Colormap
 from matplotlib.figure import Figure
-
 from structs.point import Point
 
 
